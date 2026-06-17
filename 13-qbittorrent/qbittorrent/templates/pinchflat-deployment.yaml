@@ -207,10 +207,8 @@ spec:
             cpu: "200m"
       
       # Pinchflat container
-      # Alternative images if primary is down:
-      # - ghcr.io/kieraneglin/pinchflat:latest (GitHub Container Registry)
       - name: pinchflat
-        image: keglin/pinchflat:latest
+        image: ghcr.io/kieraneglin/pinchflat:latest
         command:
         - /bin/bash
         - -c
