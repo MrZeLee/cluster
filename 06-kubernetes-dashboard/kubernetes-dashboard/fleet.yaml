@@ -4,9 +4,9 @@ labels:
   app: kubernetes-dashboard
 
 helm:
-  chart: kubernetes-dashboard
-  repo: https://kubernetes.github.io/dashboard
-  version: "7.13.0"  # You might want to specify a specific version instead of using "latest"
+  # GitHub Pages repo (https://kubernetes.github.io/dashboard) is currently 404;
+  # point straight at the release tarball instead. Revert to repo+version if Pages returns.
+  chart: https://github.com/kubernetes/dashboard/releases/download/kubernetes-dashboard-7.13.0/kubernetes-dashboard-7.13.0.tgz
   releaseName: kubernetes-dashboard
 
 kustomize:
