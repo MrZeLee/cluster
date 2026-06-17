@@ -1,0 +1,16 @@
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: cluster-lan-router
+spec:
+  hostname: cluster-lan-router
+  # The operator must own this tag (set it in the tailnet ACL `tagOwners`), and
+  # add the advertised route to `autoApprovers` to skip manual route approval.
+  tags:
+    - tag:k8s
+  subnetRouter:
+    advertiseRoutes:
+      # The LAN that holds the Traefik MetalLB LoadBalancer IP. Tailnet clients
+      # reach every mourahouse.com service over this route via the house-dns
+      # split-DNS resolver.
+      - 192.168.1.0/24

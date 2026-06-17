@@ -1,0 +1,8 @@
+# oauth.clientId / oauth.clientSecret are injected from the sealed `values-secret`
+# via fleet.yaml `valuesFrom` — do not put credentials here.
+
+# We use the operator only as a subnet router (Connector) and to expose the
+# in-cluster DNS Service to the tailnet, so the Kubernetes API server proxy is
+# left disabled.
+apiServerProxyConfig:
+  mode: "false"

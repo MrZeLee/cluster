@@ -28,6 +28,12 @@ addresss, probably?? too much time passed since I made this)
 - **TRAEFIK_USERS** - users and passwords of the traefik (probably better to check,
 but value coded base64, was a string from command `htpasswd -nbm user password`)
 
+## ./templates/16-tailscale/tailscale/values-secret.yaml
+- **TS_OAUTH_CLIENT_ID** - Tailscale OAuth client id (admin console → Settings → Trust
+credentials; `write` scope for `General/Services`, `Devices/Core`, `Keys/Auth Keys`,
+each tagged `tag:k8s-operator`)
+- **TS_OAUTH_CLIENT_SECRET** - the matching OAuth client secret
+
 # Create sealed secret
 
 ls seal-secrets | xargs -I {} rm -f seal-secrets/{}
