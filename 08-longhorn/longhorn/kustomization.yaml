@@ -1,2 +1,3 @@
 resources:
 - longhorn-nfs-installation.yaml
+- longhorn-encrypted-storage-class.yaml
