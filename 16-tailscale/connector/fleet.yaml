@@ -1,0 +1,19 @@
+defaultNamespace: tailscale
+
+labels:
+  app: tailscale-connector
+
+kustomize:
+  dir: ""
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+
+dependsOn:
+  - selector:
+      matchLabels:
+        app: tailscale-operator

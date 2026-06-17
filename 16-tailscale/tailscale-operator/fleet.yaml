@@ -17,10 +17,6 @@ helm:
       namespace: tailscale
       key: values.yaml
 
-kustomize:
-  # Applies connector.yaml (the subnet-router Connector) alongside the chart.
-  dir: ""
-
 namespaceLabels:
   managed-by: Fleet
 namespaceAnnotations:
