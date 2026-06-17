@@ -3,7 +3,7 @@ defaultNamespace: kube-system
 
 helm:
   chart: sealed-secrets
-  repo: https://bitnami-labs.github.io/sealed-secrets
+  repo: https://bitnami.github.io/sealed-secrets
   version: "2.17.7"  # You might want to specify a specific version instead of using "latest"
   values:
     fullnameOverride: sealed-secrets-controller
