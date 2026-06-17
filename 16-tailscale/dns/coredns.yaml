@@ -16,7 +16,7 @@ data:
         ready :8181
         template IN A {
             match .*mourahouse\.com\.
-            answer "{{ .Name }} 60 IN A REPLACE_TRAEFIK_LB_IPV4"
+            answer "{{ .Name }} 60 IN A 192.168.1.10"
         }
     }
 ---
