@@ -14,6 +14,7 @@ spec:
         app: headscale-router
     spec:
       hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: tailscale
           image: ghcr.io/tailscale/tailscale:stable
@@ -34,6 +35,8 @@ spec:
               value: /var/lib/tailscale
             - name: TS_ACCEPT_DNS
               value: "false"
+            - name: TS_KUBE_SECRET
+              value: ""
           securityContext:
             capabilities:
               add:
