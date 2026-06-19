@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headscale-router
+  namespace: headscale-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: headscale-router
+  template:
+    metadata:
+      labels:
+        app: headscale-router
+    spec:
+      hostNetwork: true
+      containers:
+        - name: tailscale
+          image: ghcr.io/tailscale/tailscale:stable
+          env:
+            - name: TS_AUTHKEY
+              valueFrom:
+                secretKeyRef:
+                  name: headscale-router-secret
+                  key: authkey
+            - name: TS_EXTRA_ARGS
+              valueFrom:
+                secretKeyRef:
+                  name: headscale-router-secret
+                  key: extra_args
+            - name: TS_ROUTES
+              value: "192.168.1.0/24"
+            - name: TS_STATE_DIR
+              value: /var/lib/tailscale
+            - name: TS_ACCEPT_DNS
+              value: "false"
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          volumeMounts:
+            - name: tun
+              mountPath: /dev/net/tun
+            - name: state
+              mountPath: /var/lib/tailscale
+      volumes:
+        - name: tun
+          hostPath:
+            path: /dev/net/tun
+        - name: state
+          emptyDir: {}

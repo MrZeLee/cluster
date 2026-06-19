@@ -1,0 +1,19 @@
+defaultNamespace: headscale-router
+
+labels:
+  app: headscale-router
+
+kustomize:
+  dir: ""
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+
+dependsOn:
+  - selector:
+      matchLabels:
+        app: headscale-router-secrets
