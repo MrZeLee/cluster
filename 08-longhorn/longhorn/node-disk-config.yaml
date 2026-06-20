@@ -30,7 +30,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: longhorn-disk-config-n5pro
+  name: longhorn-disk-config-n5pro-ext4
   namespace: longhorn-system
 spec:
   ttlSecondsAfterFinished: 300
@@ -48,12 +48,13 @@ spec:
           kubectl patch nodes.longhorn.io n5pro -n longhorn-system --type=merge -p '{
             "spec": {
               "disks": {
-                "longhorn-hdd": {
+                "longhorn-hdd": null,
+                "longhorn-hdd-ext4": {
                   "allowScheduling": true,
                   "diskDriver": "",
                   "diskType": "filesystem",
                   "evictionRequested": false,
-                  "path": "/mnt/longhorn-hdd",
+                  "path": "/mnt/longhorn-hdd-ext4",
                   "storageReserved": 0,
                   "tags": ["hdd"]
                 }
