@@ -1,4 +1,4 @@
 resources:
 - longhorn-nfs-installation.yaml
 - longhorn-encrypted-storage-class.yaml
-- node-n5pro.yaml
+- node-disk-config.yaml
