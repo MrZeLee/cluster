@@ -39,6 +39,8 @@ spec:
               value: ""
             - name: TS_USERSPACE
               value: "false"
+            - name: TS_HOSTNAME
+              value: "cluster"
           securityContext:
             capabilities:
               add:
