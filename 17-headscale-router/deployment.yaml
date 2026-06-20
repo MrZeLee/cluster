@@ -37,6 +37,8 @@ spec:
               value: "false"
             - name: TS_KUBE_SECRET
               value: ""
+            - name: TS_USERSPACE
+              value: "false"
           securityContext:
             capabilities:
               add:
