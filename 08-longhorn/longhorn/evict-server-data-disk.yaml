@@ -1,0 +1,31 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: longhorn-evict-server-data-disk
+  namespace: longhorn-system
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: longhorn-disk-configurator
+      restartPolicy: OnFailure
+      containers:
+      - name: evict
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Disable scheduling and request eviction of the server's /data RAID disk.
+          # Longhorn will rebuild all replicas elsewhere before the disk can be removed.
+          kubectl patch nodes.longhorn.io server -n longhorn-system --type=merge -p '{
+            "spec": {
+              "disks": {
+                "raid": {
+                  "allowScheduling": false,
+                  "evictionRequested": true
+                }
+              }
+            }
+          }'
