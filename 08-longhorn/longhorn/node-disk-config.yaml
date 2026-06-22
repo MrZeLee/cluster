@@ -45,16 +45,12 @@ spec:
         - /bin/sh
         - -c
         - |
-          # Disable old ZFS dataset disk and evict replicas, add new ext4 zvol disk.
-          # A separate job (longhorn-disk-config-n5pro-remove-old) will delete the
-          # old disk once Longhorn confirms it has no remaining replicas.
+          # Assert n5pro's HDD Longhorn disk (the 20 TB zvol formatted ext4).
+          # Idempotent — safe to re-run on every sync. The old ZFS-dataset disk
+          # ("longhorn-hdd") was drained and removed once migration completed.
           kubectl patch nodes.longhorn.io n5pro -n longhorn-system --type=merge -p '{
             "spec": {
               "disks": {
-                "longhorn-hdd": {
-                  "allowScheduling": false,
-                  "evictionRequested": true
-                },
                 "longhorn-hdd-ext4": {
                   "allowScheduling": true,
                   "diskDriver": "",
