@@ -7,3 +7,10 @@ defaultSettings:
   # (never two on the same node). This is Longhorn's default, declared here so
   # it is explicit and survives chart upgrades / setting drift.
   replicaSoftAntiAffinity: "false"
+  # Wait this long for a failed replica's node/disk to come back before giving
+  # up and rebuilding a fresh (full) replica elsewhere. Within this window the
+  # recovered replica is *reused* and only its delta is synced (delta rebuild),
+  # which matters for the manually-unlocked nodes (n5pro/server): unlock within
+  # 30 min of a reboot and the replica resyncs quickly instead of a full ~3 h
+  # rebuild. Default is 600s (10 min).
+  replicaReplenishmentWaitInterval: "1800"
