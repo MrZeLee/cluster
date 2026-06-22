@@ -13,6 +13,11 @@ spec:
       labels:
         app: headscale-router
     spec:
+      # Tailscale node state is stored in the headscale-router-state Secret
+      # (TS_KUBE_SECRET below), so the pod can re-register as the same node after
+      # a restart/reboot instead of getting a deduplicated name (cluster-xxxx).
+      # The ServiceAccount grants access to that Secret (see rbac.yaml).
+      serviceAccountName: headscale-router
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
@@ -31,12 +36,12 @@ spec:
                   key: extra_args
             - name: TS_ROUTES
               value: "192.168.1.0/24"
-            - name: TS_STATE_DIR
-              value: /var/lib/tailscale
             - name: TS_ACCEPT_DNS
               value: "false"
+            # Persist node identity in a K8s Secret (etcd-backed) — no storage
+            # dependency, survives reboots, and does not pin the pod to a node.
             - name: TS_KUBE_SECRET
-              value: ""
+              value: "headscale-router-state"
             - name: TS_USERSPACE
               value: "false"
             - name: TS_HOSTNAME
@@ -49,11 +54,7 @@ spec:
           volumeMounts:
             - name: tun
               mountPath: /dev/net/tun
-            - name: state
-              mountPath: /var/lib/tailscale
       volumes:
         - name: tun
           hostPath:
             path: /dev/net/tun
-        - name: state
-          emptyDir: {}
