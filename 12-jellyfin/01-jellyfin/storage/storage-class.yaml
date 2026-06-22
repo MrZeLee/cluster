@@ -12,5 +12,7 @@ parameters:
   fromBackup: ""
   fsType: "ext4"
   dataLocality: "best-effort"
+  # Hard node anti-affinity: never two replicas on the same node.
+  replicaSoftAntiAffinity: "disabled"
   nfsOptions: "vers=4.2,noresvport,softerr,timeo=600,retrans=5"
   migratable: "false"

@@ -3,3 +3,7 @@ defaultSettings:
   nodeDownPodDeletionPolicy: "delete-both-statefulset-and-deployment-pod"
   replicaAutoBalance: "best-effort"
   backupCompressionMethod: "none"
+  # Hard node anti-affinity: a volume's replicas must be on different nodes
+  # (never two on the same node). This is Longhorn's default, declared here so
+  # it is explicit and survives chart upgrades / setting drift.
+  replicaSoftAntiAffinity: "false"
