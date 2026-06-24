@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ocis-data
+  namespace: owncloud
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-owncloud
+  resources:
+    requests:
+      storage: 100Gi

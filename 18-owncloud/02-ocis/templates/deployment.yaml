@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocis
+  namespace: owncloud
+spec:
+  replicas: 1
+  strategy:
+    # Single RWO volume — the old pod must release it before the new one binds.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ocis
+  template:
+    metadata:
+      labels:
+        app: ocis
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+      containers:
+      - name: ocis
+        image: owncloud/ocis:8.0.5
+        # First boot scaffolds the config (idempotent — skipped once it exists),
+        # then runs the server. exec so SIGTERM reaches OCIS for a clean stop.
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          ocis init --insecure yes || true
+          exec ocis server
+        ports:
+        - containerPort: 9200
+          name: http
+          protocol: TCP
+        env:
+        - name: OCIS_URL
+          value: "https://owncloud.{{ .Values.cloudflare_zone }}"
+        - name: OCIS_LOG_LEVEL
+          value: "info"
+        # TLS is terminated at Traefik; the OCIS proxy serves plain HTTP and
+        # internal services skip TLS verification.
+        - name: PROXY_TLS
+          value: "false"
+        - name: PROXY_HTTP_ADDR
+          value: "0.0.0.0:9200"
+        - name: OCIS_INSECURE
+          value: "true"
+        - name: OCIS_CONFIG_DIR
+          value: "/etc/ocis"
+        - name: OCIS_BASE_DATA_PATH
+          value: "/var/lib/ocis"
+        - name: IDM_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ocis-secrets
+              key: admin-password
+        volumeMounts:
+        - name: ocis-data
+          mountPath: /var/lib/ocis
+          subPath: data
+        - name: ocis-data
+          mountPath: /etc/ocis
+          subPath: config
+        startupProbe:
+          tcpSocket:
+            port: 9200
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          tcpSocket:
+            port: 9200
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 9200
+          periodSeconds: 20
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+
+      volumes:
+      - name: ocis-data
+        persistentVolumeClaim:
+          claimName: ocis-data
+
+      restartPolicy: Always

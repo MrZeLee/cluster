@@ -1,0 +1,41 @@
+defaultNamespace: owncloud
+
+labels:
+  app: ocis
+
+helm:
+  releaseName: ocis
+
+  chart: ""
+  repo: ""
+  version: ""
+
+  force: false
+  timeoutSeconds: 0
+
+  # Provides cloudflare_zone / cloudflare_zone_hyphen for the IngressRoute,
+  # same as the other apps.
+  valuesFrom:
+  - secretKeyRef:
+      name: helper-values-secret
+      namespace: traefik
+      key: values.yaml
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+
+rolloutStrategy:
+  maxUnavailable: 10%
+
+# The data PVC and the admin-password secret must exist before OCIS starts.
+dependsOn:
+  - selector:
+      matchLabels:
+        app: ocis-storage
+  - selector:
+      matchLabels:
+        app: ocis-secrets
