@@ -1,0 +1,11 @@
+---
+# Stirling PDF built-in login: seeds the initial admin password on first startup
+# (referenced by the deployment as SECURITY_INITIALLOGIN_PASSWORD).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: stirling-pdf-auth
+  namespace: stirling-pdf
+type: Opaque
+stringData:
+  password: "REPLACE_WITH_ADMIN_PASSWORD"

@@ -23,10 +23,22 @@ spec:
           name: http
           protocol: TCP
         env:
-        # Stirling PDF ships with login DISABLED by default; authentication for
-        # the public route is provided by the Traefik basicAuth middleware.
+        # Stirling PDF's built-in login secures the public route, so no Traefik
+        # basicAuth middleware is used. The initial admin credentials below seed
+        # the user DB on FIRST startup only (the user is forced to change the
+        # password on first login); they are ignored once the configs PVC holds
+        # an initialized user DB.
         - name: DISABLE_ADDITIONAL_FEATURES
+          value: "false"
+        - name: SECURITY_ENABLELOGIN
           value: "true"
+        - name: SECURITY_INITIALLOGIN_USERNAME
+          value: "mrzelee"
+        - name: SECURITY_INITIALLOGIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: stirling-pdf-auth
+              key: password
         - name: SYSTEM_DEFAULTLOCALE
           value: "en-US"
         volumeMounts:

@@ -13,9 +13,6 @@ spec:
   routes:
     - match: Host(`stirling-pdf.{{ .Values.cloudflare_zone }}`)
       kind: Rule
-      middlewares:
-        - name: stirling-pdf-basicauth
-          namespace: stirling-pdf
       services:
         - name: stirling-pdf
           port: 80
