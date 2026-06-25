@@ -1,0 +1,13 @@
+---
+# Traefik basicAuth credentials fronting Stirling PDF (which has no auth of its own).
+# The `users` value is the base64 of one or more htpasswd lines, e.g.:
+#   htpasswd -nbB admin 'your-password' | base64 -w0
+# (one user per line before base64; bcrypt -B recommended).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: stirling-pdf-basicauth
+  namespace: stirling-pdf
+type: Opaque
+data:
+  users: REPLACE_WITH_BASE64_OF_HTPASSWD_LINE

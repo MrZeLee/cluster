@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stirling-pdf
+  namespace: stirling-pdf
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: stirling-pdf
+  template:
+    metadata:
+      labels:
+        app: stirling-pdf
+    spec:
+      containers:
+      - name: stirling-pdf
+        image: stirlingtools/stirling-pdf:latest
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        # Stirling PDF ships with login DISABLED by default; authentication for
+        # the public route is provided by the Traefik basicAuth middleware.
+        - name: DISABLE_ADDITIONAL_FEATURES
+          value: "true"
+        - name: SYSTEM_DEFAULTLOCALE
+          value: "en-US"
+        volumeMounts:
+        - name: configs
+          mountPath: /configs
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: configs
+        persistentVolumeClaim:
+          claimName: stirling-pdf-configs
+      - name: tmp
+        emptyDir: {}
+      restartPolicy: Always

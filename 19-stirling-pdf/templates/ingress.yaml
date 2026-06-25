@@ -1,0 +1,27 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: stirling-pdf-ingress
+  namespace: stirling-pdf
+  labels:
+  annotations:
+    kubernetes.io/ingress.class: traefik-external
+spec:
+  entryPoints:
+    - websecure
+    - web
+  routes:
+    - match: Host(`stirling-pdf.{{ .Values.cloudflare_zone }}`)
+      kind: Rule
+      middlewares:
+        - name: stirling-pdf-basicauth
+          namespace: stirling-pdf
+      services:
+        - name: stirling-pdf
+          port: 80
+  tls:
+    domains:
+    - main: {{ .Values.cloudflare_zone }}
+      sans:
+      - stirling-pdf.{{ .Values.cloudflare_zone }}
+    secretName: {{ .Values.cloudflare_zone_hyphen }}-tls
