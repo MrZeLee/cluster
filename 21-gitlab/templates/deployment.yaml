@@ -39,6 +39,9 @@ spec:
             nginx['listen_https'] = false;
             nginx['proxy_set_headers'] = { 'X-Forwarded-Proto' => 'https', 'X-Forwarded-Ssl' => 'on' };
             prometheus_monitoring['enable'] = false;
+            # Allow kube-probes (from the pod network) to reach /-/health,
+            # /-/readiness and /-/liveness; otherwise GitLab returns 404 to them.
+            gitlab_rails['monitoring_whitelist'] = ['127.0.0.0/8', '10.42.0.0/16'];
         # Applied only on the very first initialization (empty data volume).
         - name: GITLAB_ROOT_PASSWORD
           valueFrom:
