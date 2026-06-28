@@ -58,10 +58,13 @@ spec:
         - name: shm
           mountPath: /dev/shm
         # These are GitLab application settings (stored in the DB, NOT settable
-        # via gitlab.rb), so seed them here once Rails is up: disable open
-        # sign-up and disable the Web IDE single-origin fallback. The command
-        # backgrounds and returns 0 immediately so it never fails the postStart
-        # hook; it is idempotent and re-seeds on a fresh data volume.
+        # via gitlab.rb), so seed them here: disable open sign-up and the Web IDE
+        # single-origin fallback. Wait with a cheap local curl (NOT a repeated
+        # `gitlab-rails runner`, which boots a full ~1.5GB Rails each poll and
+        # OOM-kills the 8Gi container during reconfigure) until GitLab is serving,
+        # then run the heavy runner exactly once. Backgrounded so it returns 0
+        # immediately and never fails the hook; idempotent, re-seeds on a fresh
+        # data volume.
         lifecycle:
           postStart:
             exec:
@@ -69,7 +72,7 @@ spec:
               - /bin/sh
               - -c
               - |
-                ( until gitlab-rails runner 'nil' >/dev/null 2>&1; do sleep 10; done
+                ( until curl -sf -o /dev/null http://127.0.0.1:80/-/health; do sleep 10; done
                   gitlab-rails runner "ApplicationSetting.current.update!(signup_enabled: false, vscode_extension_marketplace_single_origin_fallback_enabled: false)" ) &
         # First boot runs a full reconfigure, which can take several minutes;
         # give it a long startup window before liveness/readiness kick in.
