@@ -1,0 +1,40 @@
+defaultNamespace: gitlab
+
+labels:
+  app: gitlab
+
+helm:
+  releaseName: gitlab
+
+  chart: ""
+  repo: ""
+  version: ""
+
+  force: false
+  # GitLab omnibus can take several minutes to reconfigure on first boot, so
+  # don't let Helm block on readiness.
+  timeoutSeconds: 0
+
+  # Provides cloudflare_zone / cloudflare_zone_hyphen for the IngressRoute and
+  # the external_url, same as the other apps.
+  valuesFrom:
+  - secretKeyRef:
+      name: helper-values-secret
+      namespace: traefik
+      key: values.yaml
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+
+rolloutStrategy:
+  maxUnavailable: 10%
+
+# The initial-root-password secret must exist before GitLab starts.
+dependsOn:
+  - selector:
+      matchLabels:
+        app: gitlab-secrets

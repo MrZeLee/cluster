@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab
+  namespace: gitlab
+spec:
+  replicas: 1
+  # Single RWO data volume — never run two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gitlab
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      # GitLab's hostname is used internally for SSH clone URLs and links.
+      hostname: gitlab
+      containers:
+      - name: gitlab
+        image: gitlab/gitlab-ce:18.10.1-ce.0
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 22
+          name: ssh
+          protocol: TCP
+        env:
+        # TLS is terminated at Traefik, so nginx listens on plain HTTP while
+        # external_url stays https so GitLab generates correct links/clone URLs.
+        - name: GITLAB_OMNIBUS_CONFIG
+          value: |
+            external_url 'https://gitlab.{{ .Values.cloudflare_zone }}';
+            gitlab_rails['gitlab_shell_ssh_port'] = 22;
+            nginx['listen_port'] = 80;
+            nginx['listen_https'] = false;
+            nginx['proxy_set_headers'] = { 'X-Forwarded-Proto' => 'https', 'X-Forwarded-Ssl' => 'on' };
+            prometheus_monitoring['enable'] = false;
+        # Applied only on the very first initialization (empty data volume).
+        - name: GITLAB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secrets
+              key: root-password
+        volumeMounts:
+        - name: gitlab-config
+          mountPath: /etc/gitlab
+        - name: gitlab-data
+          mountPath: /var/opt/gitlab
+        - name: gitlab-logs
+          mountPath: /var/log/gitlab
+        - name: shm
+          mountPath: /dev/shm
+        # First boot runs a full reconfigure, which can take several minutes;
+        # give it a long startup window before liveness/readiness kick in.
+        startupProbe:
+          httpGet:
+            path: /-/health
+            port: 80
+          periodSeconds: 10
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /-/health
+            port: 80
+          periodSeconds: 15
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /-/health
+            port: 80
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 5
+        resources:
+          # GitLab omnibus is heavy (bundled Postgres, Redis, Puma, Sidekiq).
+          requests:
+            memory: "4Gi"
+            cpu: "1"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+
+      volumes:
+      - name: gitlab-config
+        persistentVolumeClaim:
+          claimName: gitlab-config
+      - name: gitlab-data
+        persistentVolumeClaim:
+          claimName: gitlab-data
+      - name: gitlab-logs
+        emptyDir: {}
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 256Mi
+
+      restartPolicy: Always
