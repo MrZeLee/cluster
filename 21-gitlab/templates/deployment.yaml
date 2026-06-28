@@ -57,6 +57,19 @@ spec:
           mountPath: /var/log/gitlab
         - name: shm
           mountPath: /dev/shm
+        # Sign-up restriction is a GitLab application setting (stored in the DB,
+        # NOT settable via gitlab.rb), so seed it here once Rails is up. The
+        # command backgrounds and returns 0 immediately so it never fails the
+        # postStart hook; it is idempotent and re-seeds on a fresh data volume.
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                ( until gitlab-rails runner 'nil' >/dev/null 2>&1; do sleep 10; done
+                  gitlab-rails runner "ApplicationSetting.current.update!(signup_enabled: false)" ) &
         # First boot runs a full reconfigure, which can take several minutes;
         # give it a long startup window before liveness/readiness kick in.
         startupProbe:
