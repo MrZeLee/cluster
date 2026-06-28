@@ -26,6 +26,15 @@ spec:
           set -e
           
           echo "Installing dependencies..."
+
+          # --- Recover from a stale in-pod restart (kill-switch / leftover VPN) ---
+          # A previous PIA run can leave a dead 'pia' tunnel hijacking the default
+          # route and a resolv.conf pointing at PIA's DNS (only reachable through
+          # that tunnel) -- both break DNS for the apk install below. Reset first
+          # so an in-pod container restart can recover without a full pod recreate.
+          echo "Resetting leftover VPN state (if any)..."
+          ip link del pia 2>/dev/null || true
+          printf 'nameserver 1.1.1.1\nnameserver 1.0.0.1\n' > /etc/resolv.conf 2>/dev/null || true
           
           # Set up alternative Alpine mirrors with retry logic
           echo "Setting up alternative Alpine repositories..."
