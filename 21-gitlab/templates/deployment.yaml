@@ -98,10 +98,14 @@ spec:
         resources:
           # GitLab omnibus is heavy (bundled Postgres, Redis, Puma, Sidekiq).
           requests:
-            memory: "4Gi"
+            memory: "6Gi"
             cpu: "1"
           limits:
-            memory: "8Gi"
+            # 8Gi was too tight: the Omnibus boot peak (reconfigure + Postgres,
+            # Gitaly, Puma, Sidekiq, Redis, Workhorse, Nginx) plus the one-shot
+            # gitlab-rails runner OOM-killed the container. The node has ~100GB,
+            # so give it real headroom.
+            memory: "12Gi"
             cpu: "4"
 
       volumes:
