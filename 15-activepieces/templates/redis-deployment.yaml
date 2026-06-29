@@ -26,6 +26,8 @@ spec:
         - redis-server
         - --appendonly
         - "yes"
+        - --stop-writes-on-bgsave-error
+        - "no"
         volumeMounts:
         - name: redis-data
           mountPath: /data
