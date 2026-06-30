@@ -18,6 +18,13 @@ data:
             match .*mourahouse\.com\.
             answer "{{ .Name }} 60 IN A 192.168.1.10"
         }
+        # Answer AAAA (IPv6) with an immediate authoritative NODATA. Without this
+        # the AAAA query matches no plugin, falls through, and times out (~15s)
+        # into SERVFAIL — stalling resolvers that query A and AAAA in parallel.
+        template IN AAAA {
+            match .*mourahouse\.com\.
+            rcode NOERROR
+        }
     }
 ---
 apiVersion: apps/v1
