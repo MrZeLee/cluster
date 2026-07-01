@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: flaresolverr
   namespace: media-server
+  annotations:
+    # Stakater Reloader: roll this Deployment whenever a Secret/ConfigMap it
+    # references changes (e.g. qbittorrent-secrets rotated via SealedSecrets).
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   strategy:
