@@ -1,0 +1,22 @@
+reloader:
+  # Patch a pod-template annotation to trigger the rollout instead of injecting
+  # an env var. This is the GitOps-friendly strategy: it keeps Reloader's live
+  # mutation to a single annotation, minimising drift against Fleet's
+  # reconciliation of the committed Deployment spec.
+  reloadStrategy: annotations
+
+  # Watch Secrets/ConfigMaps across all namespaces (cluster-wide ClusterRole).
+  watchGlobally: true
+
+  # Only act on workloads that explicitly opt in via the
+  # `reloader.stakater.com/auto: "true"` annotation, rather than every workload.
+  reloadOnCreate: false
+
+  deployment:
+    resources:
+      requests:
+        cpu: "10m"
+        memory: "32Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
