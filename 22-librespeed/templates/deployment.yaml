@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: librespeed
+  namespace: librespeed
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: librespeed
+  template:
+    metadata:
+      labels:
+        app: librespeed
+    spec:
+      # Schedule only on the 10Gbps nodes so the speed test measures a 10Gbps link.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - n5pro
+                - server
+      containers:
+      - name: librespeed
+        image: ghcr.io/librespeed/speedtest:latest
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        env:
+        - name: MODE
+          value: "standalone"
+        - name: TELEMETRY
+          value: "false"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      restartPolicy: Always
