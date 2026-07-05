@@ -30,7 +30,7 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: longhorn-disk-config-n5pro-v2
+  name: longhorn-disk-config-n5pro-v3
   namespace: longhorn-system
 spec:
   ttlSecondsAfterFinished: 300
@@ -46,8 +46,7 @@ spec:
         - -c
         - |
           # Assert n5pro's HDD Longhorn disk (the 20 TB zvol formatted ext4).
-          # Idempotent — safe to re-run on every sync. The old ZFS-dataset disk
-          # ("longhorn-hdd") was drained and removed once migration completed.
+          # Idempotent — safe to re-run on every sync.
           kubectl patch nodes.longhorn.io n5pro -n longhorn-system --type=merge -p '{
             "spec": {
               "disks": {
@@ -63,3 +62,11 @@ spec:
               }
             }
           }'
+          # Remove the old ZFS-dataset disk ("longhorn-hdd") left over from the
+          # migration. A --type=merge patch cannot delete map keys, so it must be
+          # removed explicitly. Guarded so re-runs succeed once it is gone.
+          if kubectl get nodes.longhorn.io n5pro -n longhorn-system \
+               -o jsonpath='{.spec.disks.longhorn-hdd}' | grep -q .; then
+            kubectl patch nodes.longhorn.io n5pro -n longhorn-system --type=json \
+              -p '[{"op":"remove","path":"/spec/disks/longhorn-hdd"}]'
+          fi
