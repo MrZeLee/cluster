@@ -1,0 +1,25 @@
+# Automatic point-in-time protection for every Longhorn volume.
+#
+# On 2026-07-09 a pool-saturation event corrupted 7 volumes' ext4 at once and
+# there was NO backup or snapshot to fall back on — recovery relied on fsck plus
+# snapshots taken by hand mid-incident. A daily recurring snapshot gives every
+# volume an automatic rollback point. Snapshots are local COW (cheap, no data
+# copy) so they need no backup target; off-cluster backups are configured
+# separately via defaultSettings.backupTarget once a destination exists.
+#
+# `groups: [default]` applies to all volumes (every volume is in the "default"
+# group unless labelled otherwise). Cron is UTC.
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: daily-snapshot
+  namespace: longhorn-system
+spec:
+  cron: "0 3 * * *"
+  task: snapshot
+  groups:
+    - default
+  retain: 7
+  # Snapshot at most 2 volumes at a time so the shared HDD pool on n5pro is never
+  # hit by a burst of simultaneous snapshot work.
+  concurrency: 2

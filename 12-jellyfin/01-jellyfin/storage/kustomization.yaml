@@ -1,4 +1,3 @@
 resources:
 - storage-class.yaml
 - pvc.yaml
-- patch-volume-replicas.yaml

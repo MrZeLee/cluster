@@ -14,3 +14,19 @@ defaultSettings:
   # 30 min of a reboot and the replica resyncs quickly instead of a full ~3 h
   # rebuild. Default is 600s (10 min).
   replicaReplenishmentWaitInterval: "1800"
+  # All of a node's Longhorn replicas share one backing store (on n5pro: a single
+  # spinning-HDD raidz1 zvol). A full rebuild of a large volume (e.g. jellyfin-media,
+  # 2.5 TB) can saturate that pool and push per-I/O latency past the engine timeout
+  # for *every* attached volume at once — which on 2026-07-09 aborted the ext4
+  # journals of 7 volumes simultaneously and remounted them read-only. These two
+  # settings blunt that failure mode:
+  #
+  # Only one replica rebuild per node at a time (default 5), so concurrent rebuilds
+  # can't stack and collectively starve live DB/app I/O on the shared HDD pool.
+  concurrentReplicaRebuildPerNodeLimit: "1"
+  # How long the engine waits for a replica I/O before declaring it failed. Default
+  # is 8s; the HDD pool's loaded latency spiked to 16-23s during the incident, so
+  # 8s tripped a false failure and cascaded. Max it out (30s) so a transient pool
+  # latency spike is tolerated instead of aborting every volume's filesystem.
+  # NOTE: takes effect for volumes on their next attach.
+  engineReplicaTimeout: "30"
