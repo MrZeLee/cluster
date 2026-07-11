@@ -1,0 +1,57 @@
+defaultNamespace: minio
+
+labels:
+  app: minio
+
+helm:
+  releaseName: minio
+
+  # The directory of the chart in the repo.  Also any valid go-getter supported
+  # URL can be used there is specify where to download the chart from.
+  # If repo below is set this value if the chart name in the repo
+  chart: ""
+
+  # An https to a valid Helm repository to download the chart from
+  repo: ""
+
+  # Used if repo is set to look up the version of the chart
+  version: ""
+
+  # Force recreate resource that can not be updated
+  force: false
+
+  # How long for helm to wait for the release to be active. If the value
+  # is less that or equal to zero, we will not wait in Helm
+  timeoutSeconds: 0
+
+  # cloudflare_zone / cloudflare_zone_hyphen for the console IngressRoute.
+  valuesFrom:
+  - secretKeyRef:
+      name: helper-values-secret
+      namespace: traefik
+      key: values.yaml
+
+# The MinIO data PVC + its dedicated longhorn-minio-storage StorageClass live in
+# storage/ as a Kustomize overlay (like 12-jellyfin), applied alongside the Helm
+# chart.
+kustomize:
+  dir: "storage"
+
+# Optional: Configuration if you need to apply specific labels or annotations to the namespace
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+# Optional: You might want to pause the rollout to manually inspect before deployment
+paused: false
+
+# Deployment strategy can be configured if needed (for larger or more complex deployments)
+rolloutStrategy:
+  maxUnavailable: 10%
+
+# MinIO needs the S3 credentials secret present first.
+dependsOn:
+  - selector:
+      matchLabels:
+        app: minio-secrets

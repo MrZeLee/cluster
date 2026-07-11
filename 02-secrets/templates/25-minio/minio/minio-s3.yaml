@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-s3
+  namespace: minio
+type: Opaque
+stringData:
+  # MinIO root credentials. These MUST match the values in the meeting-bot-s3
+  # secret (02-secrets/templates/24-meeting-bot/meeting-bot/meeting-bot-s3.yaml):
+  # meeting-bot uses those same key/secret to authenticate to this MinIO over
+  # S3, so if they drift the bot can no longer upload recordings.
+  access-key: CHANGE_ME_minio_root_user
+  secret-key: CHANGE_ME_minio_root_password
