@@ -86,12 +86,14 @@ spec:
               value: "1000"
           resources:
             requests:
-              cpu: "500m"
-              memory: 512Mi
+              cpu: "1"
+              memory: 2Gi
               ephemeral-storage: 5Gi
             limits:
-              cpu: "2"
-              memory: 2Gi
+              # Bumped for long/HD Teams recordings: this container runs the
+              # browser + ffmpeg encode and was CPU-pegged at the old 2-core cap.
+              cpu: "6"
+              memory: 8Gi
               # WebM buffers to container disk before upload; a long meeting can
               # be several GB. This caps it on the N5 Pro's NVMe.
               ephemeral-storage: 30Gi
