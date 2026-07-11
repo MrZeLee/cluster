@@ -4,7 +4,11 @@ labels:
   app: meeting-bot-minio
 
 helm:
-  releaseName: minio
+  # No releaseName on purpose: this bundle started life as Kustomize, so its
+  # PVC/Deployment/Service are already owned by Fleet's DEFAULT release name.
+  # Setting a custom releaseName here makes Helm try a fresh install and fail to
+  # adopt them ("cannot be imported into the current release"). Keeping the
+  # default turns it into an upgrade that adopts them cleanly.
 
   # The directory of the chart in the repo.  Also any valid go-getter supported
   # URL can be used there is specify where to download the chart from.
