@@ -6,7 +6,7 @@ metadata:
   namespace: default
   annotations:
     reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-    reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "cattle-system,media-server,n8n,activepieces"
+    reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "activepieces,cattle-system,gitlab,librespeed,media-server,minio,monitoring,owncloud,stirling-pdf"
 spec:
   secretName: {{ .Values.cloudflare_zone_hyphen }}-tls
   issuerRef:
@@ -19,7 +19,7 @@ spec:
   secretTemplate:
     annotations:
       reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "cattle-system,media-server"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "activepieces,cattle-system,gitlab,librespeed,media-server,minio,monitoring,owncloud,stirling-pdf"
       reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
 
 ---
@@ -30,7 +30,7 @@ metadata:
   namespace: default
   annotations:
     reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-    reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kubernetes-dashboard,traefik,media-server"
+    reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kubernetes-dashboard,media-server,meeting-bot,traefik,uptime-kuma"
 spec:
   secretName: local-{{ .Values.cloudflare_zone_hyphen }}-tls
   issuerRef:
@@ -43,6 +43,6 @@ spec:
   secretTemplate:
     annotations:
       reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kubernetes-dashboard,traefik"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kubernetes-dashboard,media-server,meeting-bot,traefik,uptime-kuma"
       reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
 

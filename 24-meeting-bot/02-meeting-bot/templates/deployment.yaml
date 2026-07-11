@@ -76,9 +76,9 @@ spec:
                   key: secret-key
             # --- Recording behaviour / Teams tuning ---
             - name: MAX_RECORDING_DURATION_MINUTES
-              value: "180"
+              value: "300"
             - name: MEETING_INACTIVITY_MINUTES
-              value: "2"
+              value: "30"
             - name: JOIN_WAIT_TIME_MINUTES
               value: "5"
             # Teams needs a moment for audio to settle after admission.
