@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: meeting-bot
+  namespace: meeting-bot
+spec:
+  selector:
+    app: meeting-bot
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  # ClusterIP — fronted by the internal-only Traefik IngressRoute
+  # (meeting-bot.local.<zone>, see ingress.yaml). Not exposed publicly. The API
+  # is unauthenticated, so anyone who can resolve/reach that LAN host can spawn
+  # bots; put a Traefik basic-auth middleware in front if that matters.
+  type: ClusterIP

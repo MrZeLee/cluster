@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: meeting-bot-s3
+  namespace: meeting-bot
+type: Opaque
+stringData:
+  # These double as the MinIO root credentials AND the S3 credentials the
+  # meeting-bot uses to upload recordings. Single-tenant, so one set is fine.
+  access-key: CHANGE_ME_minio_root_user
+  secret-key: CHANGE_ME_minio_root_password

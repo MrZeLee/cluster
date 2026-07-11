@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meeting-bot
+  namespace: meeting-bot
+spec:
+  # One meeting at a time per pod (the app's JobStore is single-slot). To record
+  # N concurrent meetings, run N of these — do NOT just raise replicas expecting
+  # a shared queue; each pod is an independent single-slot recorder.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: meeting-bot
+  template:
+    metadata:
+      labels:
+        app: meeting-bot
+    spec:
+      # Pin to the Minisforum N5 Pro: fast NVMe for the WebM scratch buffer and
+      # CPU headroom for the browser + ffmpeg encode. (No GPU is used — this app
+      # does not transcribe, so the Radeon 890M is irrelevant here.)
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - n5pro
+      containers:
+        - name: meeting-bot
+          image: ghcr.io/screenappai/meeting-bot:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            # Talk to the Chrome DevTools Protocol sidecar over pod-localhost.
+            - name: GOOGLE_CHROME_CDP_URL
+              value: "http://127.0.0.1:9222"
+            # We POST jobs over REST, so keep the Redis queue consumer off.
+            - name: REDIS_CONSUMER_ENABLED
+              value: "false"
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            # --- Storage: upload recordings to the in-namespace MinIO ---
+            - name: STORAGE_PROVIDER
+              value: "s3"
+            - name: UPLOADER_TYPE
+              value: "s3"
+            - name: S3_ENDPOINT
+              value: "http://minio:9000"
+            - name: S3_USE_MINIO_COMPATIBILITY
+              value: "true"
+            - name: S3_REGION
+              value: "us-east-1"
+            - name: S3_BUCKET_NAME
+              value: "meeting-bot"
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: meeting-bot-s3
+                  key: access-key
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: meeting-bot-s3
+                  key: secret-key
+            # --- Recording behaviour / Teams tuning ---
+            - name: MAX_RECORDING_DURATION_MINUTES
+              value: "180"
+            - name: MEETING_INACTIVITY_MINUTES
+              value: "2"
+            - name: JOIN_WAIT_TIME_MINUTES
+              value: "5"
+            # Teams needs a moment for audio to settle after admission.
+            - name: TEAMS_AUDIO_STABILIZATION_MS
+              value: "1000"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 512Mi
+              ephemeral-storage: 5Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              # WebM buffers to container disk before upload; a long meeting can
+              # be several GB. This caps it on the N5 Pro's NVMe.
+              ephemeral-storage: 30Gi
+        - name: chrome-cdp
+          image: ghcr.io/screenappai/meeting-bot-chrome-cdp:latest
+          ports:
+            - containerPort: 9222
+              name: cdp
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            # Chrome crashes with the default 64 MB /dev/shm; give it real shm.
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
