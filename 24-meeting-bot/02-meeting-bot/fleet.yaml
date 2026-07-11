@@ -44,8 +44,10 @@ paused: false
 rolloutStrategy:
   maxUnavailable: 10%
 
-# The bot uploads to MinIO, so bring MinIO up first.
+# The bot mounts the meeting-bot-s3 secret, so seal it first. MinIO now lives in
+# the standalone 25-minio app and is a runtime dependency (the bot retries
+# uploads), so it is not ordered here.
 dependsOn:
   - selector:
       matchLabels:
-        app: meeting-bot-minio
+        app: meeting-bot-secrets

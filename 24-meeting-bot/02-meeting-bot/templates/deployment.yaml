@@ -51,13 +51,13 @@ spec:
               value: "redis"
             - name: REDIS_PORT
               value: "6379"
-            # --- Storage: upload recordings to the in-namespace MinIO ---
+            # --- Storage: upload recordings to the standalone 25-minio store ---
             - name: STORAGE_PROVIDER
               value: "s3"
             - name: UPLOADER_TYPE
               value: "s3"
             - name: S3_ENDPOINT
-              value: "http://minio:9000"
+              value: "http://minio.minio.svc.cluster.local:9000"
             - name: S3_USE_MINIO_COMPATIBILITY
               value: "true"
             - name: S3_REGION
