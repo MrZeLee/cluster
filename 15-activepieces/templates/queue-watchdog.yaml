@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: queue-watchdog
+  namespace: activepieces
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: queue-watchdog
+  namespace: activepieces
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: queue-watchdog
+  namespace: activepieces
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: queue-watchdog
+subjects:
+- kind: ServiceAccount
+  name: queue-watchdog
+  namespace: activepieces
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: queue-watchdog
+  namespace: activepieces
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: queue-watchdog
+          restartPolicy: OnFailure
+          containers:
+          - name: watchdog
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Activepieces' BullMQ workers hang on half-open connections when
+              # redis dies hard (incident 2026-07-09: queue dead for 4 days while
+              # /api/v1/health stayed green). If redis restarted after the app
+              # pod started, restart the app so it reconnects.
+              ap_ts=$(kubectl get pod -n activepieces -l app=activepieces -o jsonpath='{.items[0].status.startTime}')
+              redis_ts=$(kubectl get pod -n activepieces -l app=redis -o jsonpath='{.items[0].status.startTime}')
+              if [ -z "$ap_ts" ] || [ -z "$redis_ts" ]; then
+                echo "pod(s) not found, skipping"; exit 0
+              fi
+              if [ "$(date -d "$redis_ts" +%s)" -gt "$(date -d "$ap_ts" +%s)" ]; then
+                echo "redis ($redis_ts) is newer than activepieces ($ap_ts), restarting"
+                kubectl rollout restart deployment/activepieces -n activepieces
+              else
+                echo "ok: activepieces ($ap_ts) started after redis ($redis_ts)"
+              fi
