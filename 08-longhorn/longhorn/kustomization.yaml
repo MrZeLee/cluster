@@ -1,5 +1,4 @@
 resources:
 - longhorn-nfs-installation.yaml
 - longhorn-encrypted-storage-class.yaml
-- node-disk-config.yaml
 - recurring-jobs.yaml

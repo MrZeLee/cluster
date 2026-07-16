@@ -1,3 +1,13 @@
+persistence:
+  # Fence the default "longhorn" class off the n5pro HDD pool: new volumes only
+  # schedule on disks tagged "ssd" (tags are set manually — see README.md).
+  # Bulk media classes (jellyfin/owncloud/minio) stay selector-free on purpose —
+  # their 2nd replica living on the HDD is intended. Existing volumes keep their
+  # old (empty) diskSelector; move them per-volume in the Longhorn UI.
+  defaultDiskSelector:
+    enable: true
+    selector: "ssd"
+
 defaultSettings:
   autoDeletePodWhenVolumeDetachedUnexpectedly: "true"
   nodeDownPodDeletionPolicy: "delete-both-statefulset-and-deployment-pod"
