@@ -18,8 +18,9 @@ fast disks share the `ssd` tier tag instead of each having only its own kind:
 - `ssd` (tier) — every fast disk (NVMe/SSD/default `/var/lib/longhorn`
   disks). Required for the default storage class to use the disk.
 - `hdd` (tier) — spinning disks. Only the selector-free bulk classes
-  (`longhorn-jellyfin-storage`, `longhorn-owncloud`, `longhorn-minio-storage`)
-  may land here, as their extra replica. Currently just n5pro's
+  (`longhorn-jellyfin-storage`, `longhorn-owncloud`) may land here, as their
+  extra replica; `longhorn-minio-storage` selects `ssd` (MinIO scans/writes
+  constantly). Currently just n5pro's
   `longhorn-hdd-ext4` disk: a 20 TB ext4-formatted zvol on the spinning-disk
   raidz pool, mounted at `/mnt/longhorn-hdd-ext4`. (Don't trust
   auto-detection for it: zvols report `rotational=0`, i.e. look like SSDs.)

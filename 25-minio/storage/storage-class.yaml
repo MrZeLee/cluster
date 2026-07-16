@@ -16,3 +16,5 @@ parameters:
   # Hard node anti-affinity: never two replicas on the same node.
   replicaSoftAntiAffinity: "disabled"
   migratable: "false"
+  # MinIO constantly writes and scans its buckets — keep it off the HDD pool.
+  diskSelector: "ssd"
