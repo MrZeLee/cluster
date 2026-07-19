@@ -7,7 +7,7 @@
 # forces a guaranteed, drift-free rollout.
 image:
   repository: ghcr.io/mrzelee/smartctl-exporter
-  tag: "v0.14.0@sha256:3fbe184815d882ba31370fcd037df735d7069276009377cb43c160d0e0fedcd4"
+  tag: "v0.14.0@sha256:b5375aec257f35279eda31b541073dff4b4285612ebed6348f5e72159d727498"
 
 serviceMonitor:
   enabled: true
