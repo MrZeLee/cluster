@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-smartctl-exporter
+  namespace: monitoring
+  labels:
+    # Auto-loaded by the kube-prometheus-stack Grafana dashboard sidecar.
+    grafana_dashboard: "1"
+data:
+  smartctl-exporter.json: |
+{{ .Files.Get "dashboards/smartctl-exporter.json" | indent 4 }}
