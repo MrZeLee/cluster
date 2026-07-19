@@ -23,8 +23,8 @@ paused: false
 rolloutStrategy:
   maxUnavailable: 10%
 
-# Needs the ServiceMonitor CRD + Prometheus from the kube-prometheus-stack.
-dependsOn:
-  - selector:
-      matchLabels:
-        app: monitoring
+# NOTE: intentionally NO dependsOn. It only needs the ServiceMonitor CRD (long
+# installed by the monitoring stack), but Fleet's dependsOn waits for the whole
+# monitoring bundle to be Ready — which never happens while any node is down
+# (node-exporter DaemonSet stuck N-1/N). Fleet retries ErrApplied, so a missing
+# CRD on a fresh cluster self-heals without gating on monitoring's health.
