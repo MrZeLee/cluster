@@ -1,0 +1,57 @@
+name: Build smartctl-exporter image
+
+# Repackages upstream's official multi-arch binaries into a container image the
+# arm64 Raspberry Pis can run (upstream ships amd64-only images). Pushes to GHCR
+# using the built-in GITHUB_TOKEN — no PAT needed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '09-monitoring/smartctl-exporter/image/**'
+      - '.github/workflows/smartctl-exporter-image.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'smartctl_exporter upstream version (no leading v)'
+        default: '0.14.0'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/mrzelee/smartctl-exporter
+      VERSION: ${{ github.event.inputs.version || '0.14.0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3      # arm64 emulation
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: 09-monitoring/smartctl-exporter/image
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: VERSION=${{ env.VERSION }}
+          tags: ${{ env.IMAGE }}:v${{ env.VERSION }}
+
+      - name: Report digest to pin
+        run: |
+          echo "### smartctl-exporter image pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ env.IMAGE }}:v${{ env.VERSION }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Pin this digest in values.yaml: ${{ steps.build.outputs.digest }}"
