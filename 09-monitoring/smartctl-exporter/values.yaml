@@ -1,0 +1,9 @@
+# The DaemonSet already runs privileged as root and mounts host /dev, so device
+# access needs no extra config; smartctl auto-scans each node's disks.
+
+serviceMonitor:
+  enabled: true
+  # kube-prometheus-stack's Prometheus (serviceMonitorSelectorNilUsesHelmValues:
+  # true) only scrapes ServiceMonitors labelled with its release name.
+  extraLabels:
+    release: monitoring-stack

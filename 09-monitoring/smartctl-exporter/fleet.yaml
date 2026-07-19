@@ -1,0 +1,30 @@
+defaultNamespace: monitoring
+
+labels:
+  app: smartctl-exporter
+
+helm:
+  # Per-node DaemonSet that runs `smartctl` and exposes SMART health metrics
+  # (temperature, reallocated/pending sectors, SSD wear, NVMe media errors) for
+  # the Prometheus/Grafana stack in the sibling `monitoring` bundle to scrape.
+  chart: prometheus-smartctl-exporter
+  repo: https://prometheus-community.github.io/helm-charts
+  version: "0.17.1"  # app v0.14.0
+  releaseName: smartctl-exporter
+  valuesFiles:
+    - values.yaml
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+rolloutStrategy:
+  maxUnavailable: 10%
+
+# Needs the ServiceMonitor CRD + Prometheus from the kube-prometheus-stack.
+dependsOn:
+  - selector:
+      matchLabels:
+        app: monitoring
