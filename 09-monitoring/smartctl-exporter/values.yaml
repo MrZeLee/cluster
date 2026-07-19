@@ -1,12 +1,13 @@
 # The DaemonSet already runs privileged as root and mounts host /dev, so device
 # access needs no extra config; smartctl auto-scans each node's disks.
 
-# smartctl-exporter publishes an amd64-only image (no arm64 on any registry), so
-# it can't run on the arm64 Raspberry Pis — which boot from SD/USB with little
-# usable SMART anyway. Pin to the amd64 nodes (server, n5pro, minipc), the
-# storage-heavy machines where SMART matters (raid0, NVMe, the raidz HDDs).
-nodeSelector:
-  kubernetes.io/arch: amd64
+# Upstream ships an amd64-only image, so we run our own multi-arch build (see
+# image/Dockerfile, built by .github/workflows/smartctl-exporter-image.yml) to
+# also cover the arm64 Pis and their USB SSDs. Pinned by digest so every rebuild
+# forces a guaranteed, drift-free rollout.
+image:
+  repository: ghcr.io/mrzelee/smartctl-exporter
+  tag: "v0.14.0@sha256:3fbe184815d882ba31370fcd037df735d7069276009377cb43c160d0e0fedcd4"
 
 serviceMonitor:
   enabled: true
