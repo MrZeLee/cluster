@@ -58,6 +58,15 @@ spec:
           # Wait for VPN to be fully established
           echo "Waiting for PIA VPN to be ready..."
           while ! wg show pia > /dev/null 2>&1; do
+            # A transient PIA login/token failure makes run_setup.sh exit WITHOUT
+            # bringing up 'pia'; detect that and retry (AUTOCONNECT re-picks a
+            # server) instead of hanging here until the startupProbe kills us.
+            if ! kill -0 $PIA_PID 2>/dev/null; then
+              echo "run_setup.sh exited before VPN came up (PIA login likely failed) - retrying..."
+              sleep 5
+              ./run_setup.sh &
+              PIA_PID=$!
+            fi
             echo "Waiting for VPN interface pia to be ready..."
             sleep 5
           done
