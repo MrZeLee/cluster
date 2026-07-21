@@ -1,0 +1,50 @@
+# GitLab Runner — Kubernetes executor. The manager pod stays tiny and spawns a
+# fresh pod per CI job. Privileged is enabled so pipelines can build & push
+# container images via Docker-in-Docker (docker:dind service).
+
+# Talk to GitLab over the in-cluster Service (no TLS hop needed); public clone
+# URLs still come from external_url and resolve fine from job pods.
+gitlabUrl: http://gitlab.gitlab.svc.cluster.local/
+
+# Use the pre-sealed secret (key: runner-token) instead of putting the token here.
+runners:
+  secret: gitlab-runner-secret
+  config: |
+    [[runners]]
+      name = "kubernetes"
+      executor = "kubernetes"
+      [runners.kubernetes]
+        namespace = "gitlab"
+        image = "alpine:3.21"
+        # Required for Docker-in-Docker image builds.
+        privileged = true
+        # Modest per-job caps for a <=5-user instance; jobs run in their own
+        # pods off the node's free RAM, not the GitLab pod's budget.
+        cpu_request = "100m"
+        memory_request = "256Mi"
+        cpu_limit = "2"
+        memory_limit = "4Gi"
+        service_cpu_limit = "2"
+        service_memory_limit = "4Gi"
+      # TLS certs shared between the job and the docker:dind service.
+      [[runners.kubernetes.volumes.empty_dir]]
+        name = "docker-certs"
+        mount_path = "/certs/client"
+        medium = "Memory"
+
+# Max simultaneous CI jobs across the instance.
+concurrent: 4
+
+# Let the chart create the ServiceAccount + Role so the runner can manage job
+# pods in the gitlab namespace.
+rbac:
+  create: true
+
+# The runner manager itself is lightweight.
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

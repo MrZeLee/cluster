@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gitlab
+  namespace: gitlab
+  labels:
+    app: gitlab
+    # kube-prometheus-stack (09-monitoring) only picks up ServiceMonitors
+    # carrying its release label (serviceMonitorSelectorNilUsesHelmValues).
+    release: monitoring-stack
+spec:
+  selector:
+    matchLabels:
+      app: gitlab
+  endpoints:
+    # GitLab's Rails/Puma Prometheus metrics. The pod network (10.42.0.0/16) is
+    # already in gitlab_rails['monitoring_whitelist'], so the scrape is allowed.
+    - port: http
+      path: /-/metrics
+      interval: 30s
+      scheme: http

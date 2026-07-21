@@ -38,9 +38,22 @@ spec:
             nginx['listen_port'] = 80;
             nginx['listen_https'] = false;
             nginx['proxy_set_headers'] = { 'X-Forwarded-Proto' => 'https', 'X-Forwarded-Ssl' => 'on' };
-            prometheus_monitoring['enable'] = false;
-            # Allow kube-probes (from the pod network) to reach /-/health,
-            # /-/readiness and /-/liveness; otherwise GitLab returns 404 to them.
+            # Expose GitLab's own metrics/exporters, but do NOT run the bundled
+            # Prometheus server or Alertmanager: the cluster already runs
+            # kube-prometheus-stack (09-monitoring), which scrapes the Rails
+            # /-/metrics endpoint via the ServiceMonitor in this bundle.
+            prometheus_monitoring['enable'] = true;
+            prometheus['enable'] = false;
+            alertmanager['enable'] = false;
+            # Omnibus auto-sizes Puma/Sidekiq from the HOST cpu count (nproc=24 on
+            # this node), not the pod's cgroup limit. That spawned 24 Puma workers
+            # (~0.9GB each, ~21GB total) and OOM-killed the container roughly every
+            # 2.5h. This instance serves <=5 users, so pin both pools small.
+            puma['worker_processes'] = 2;
+            sidekiq['max_concurrency'] = 10;
+            # Allow the pod network to reach /-/health, /-/readiness, /-/liveness
+            # (kube-probes) and /-/metrics (the ServiceMonitor scrape); otherwise
+            # GitLab returns 404 to them.
             gitlab_rails['monitoring_whitelist'] = ['127.0.0.0/8', '10.42.0.0/16'];
         # Applied only on the very first initialization (empty data volume).
         - name: GITLAB_ROOT_PASSWORD
@@ -96,16 +109,16 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 5
         resources:
-          # GitLab omnibus is heavy (bundled Postgres, Redis, Puma, Sidekiq).
+          # GitLab omnibus is heavy (bundled Postgres, Redis, Puma, Sidekiq), but
+          # with Puma pinned to 2 workers the steady state is ~4-5Gi. 8Gi leaves
+          # headroom for the boot peak (reconfigure + the one-shot gitlab-rails
+          # runner, which briefly boots a full ~1.5Gi Rails) and for CI API load.
+          # CI jobs run in separate runner pods off the node's free RAM, not here.
           requests:
-            memory: "6Gi"
+            memory: "4Gi"
             cpu: "1"
           limits:
-            # 8Gi was too tight: the Omnibus boot peak (reconfigure + Postgres,
-            # Gitaly, Puma, Sidekiq, Redis, Workhorse, Nginx) plus the one-shot
-            # gitlab-rails runner OOM-killed the container. The node has ~100GB,
-            # so give it real headroom.
-            memory: "12Gi"
+            memory: "8Gi"
             cpu: "4"
 
       volumes:

@@ -1,0 +1,30 @@
+defaultNamespace: gitlab
+
+labels:
+  app: gitlab-runner
+
+helm:
+  releaseName: gitlab-runner
+  repo: https://charts.gitlab.io
+  chart: gitlab-runner
+  # 0.87.1 ships GitLab Runner 18.10.1, matching the gitlab-ce version.
+  version: "0.87.1"
+  valuesFiles:
+    - values.yaml
+
+namespaceLabels:
+  managed-by: Fleet
+namespaceAnnotations:
+  fleet.cattle.io/managed: "true"
+
+paused: false
+
+rolloutStrategy:
+  maxUnavailable: 10%
+
+# The auth-token secret (gitlab-runner-secret) is sealed into 21-gitlab/secrets,
+# which is the app: gitlab-secrets bundle — it must exist before the runner boots.
+dependsOn:
+  - selector:
+      matchLabels:
+        app: gitlab-secrets
