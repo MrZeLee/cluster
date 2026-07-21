@@ -1,0 +1,41 @@
+# Read-only ServiceAccount so Uptime Kuma can query node Ready conditions from the
+# apiserver (a TCP/10250 check only proves the kubelet is listening, not that the
+# node is Ready — see this app's monitors for the /api/v1/nodes JSON-query probe).
+# Grants nothing but get/list on nodes. The token Secret below contains no secret
+# material in git; the apiserver auto-populates .data.token at runtime.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kuma-node-reader
+  namespace: uptime-kuma
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-reader
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kuma-node-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-reader
+subjects:
+- kind: ServiceAccount
+  name: kuma-node-reader
+  namespace: uptime-kuma
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kuma-node-reader-token
+  namespace: uptime-kuma
+  annotations:
+    kubernetes.io/service-account.name: kuma-node-reader
+type: kubernetes.io/service-account-token
