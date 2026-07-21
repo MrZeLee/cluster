@@ -14,3 +14,7 @@ spec:
       port: 80
       targetPort: 80
       protocol: TCP
+    - name: ssh
+      port: 22
+      targetPort: 22
+      protocol: TCP

@@ -46,7 +46,17 @@ ports:
     port: 51820
     protocol: UDP
     exposedPort: 51820
-      
+  # git-over-SSH for GitLab, exposed on the LB VIP as 2222 (a single port that
+  # works both on the LAN and through the Hetzner headscale node's forward). An
+  # IngressRouteTCP (21-gitlab) routes this entrypoint to the gitlab service:22.
+  gitlabssh:
+    expose:
+      default: true
+      internal: false
+    port: 2222
+    protocol: TCP
+    exposedPort: 2222
+
 ingressRoute:
   dashboard:
     enabled: false

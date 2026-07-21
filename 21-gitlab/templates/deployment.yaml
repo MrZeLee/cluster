@@ -34,7 +34,10 @@ spec:
         - name: GITLAB_OMNIBUS_CONFIG
           value: |
             external_url 'https://gitlab.{{ .Values.cloudflare_zone }}';
-            gitlab_rails['gitlab_shell_ssh_port'] = 22;
+            # External git-SSH is exposed on 2222 (Traefik VIP / Hetzner forward),
+            # so clone URLs must advertise 2222. The in-container sshd still
+            # listens on 22; Traefik routes :2222 -> gitlab service :22.
+            gitlab_rails['gitlab_shell_ssh_port'] = 2222;
             nginx['listen_port'] = 80;
             nginx['listen_https'] = false;
             nginx['proxy_set_headers'] = { 'X-Forwarded-Proto' => 'https', 'X-Forwarded-Ssl' => 'on' };
