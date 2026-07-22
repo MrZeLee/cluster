@@ -20,153 +20,43 @@ spec:
         app: qbittorrent
     spec:
       containers:
-      # WireGuard VPN sidecar with integrated PIA setup
+      # PIA WireGuard VPN sidecar (MrZeLee/docker-wireguard-pia)
       - name: wireguard
-        image: alpine:latest
-        command:
-        - /bin/sh
-        - -c
-        - |
-          set -e
-          
-          echo "Installing dependencies..."
-          apk add --no-cache curl jq git bash wireguard-tools iptables iproute2 dnsmasq bind-tools
-          
-          echo "Cloning PIA manual-connections repository..."
-          cd /tmp
-          git clone https://github.com/MrZeLee/manual-connections.git
-          cd manual-connections
-          
-          echo "Patching port_forwarding.sh to save port to file..."
-          # Add line to save port to file after the port is displayed
-          sed -i '/echo -e Forwarded port/a echo "$port" > /opt/piavpn-manual-port' port_forwarding.sh
-          
-          echo "Setting up PIA WireGuard connection with Port Forwarding..."
-          
-          # Run PIA setup script with environment variables
-          export PIA_USER="${PIA_USERNAME}"
-          export PIA_PASS="${PIA_PASSWORD}"
-          export VPN_PROTOCOL=wireguard
-          export DISABLE_IPV6=yes
-          export DIP_TOKEN=no
-          export AUTOCONNECT=true  # Auto-select best server
-          export PIA_PF=true  # Enable port forwarding
-          export PIA_DNS=true
-          export PIA_CONNECT=true  # Connect and maintain port forwarding
-          export MAX_LATENCY=0.1
-          
-          # # If PREFERRED_REGION is set, use it; otherwise auto-select best server
-          # if [ -n "${PIA_REGION}" ]; then
-          #   export PREFERRED_REGION="${PIA_REGION}"
-          # fi
-          
-          # Create shared directory structure
-          mkdir -p /shared
-          
-          echo "Starting PIA VPN with run_setup.sh..."
-          ./run_setup.sh &
-          PIA_PID=$!
-          
-          # Wait for VPN to be fully established
-          echo "Waiting for PIA VPN to be ready..."
-          while ! wg show pia > /dev/null 2>&1; do
-            # A transient PIA login/token failure makes run_setup.sh exit WITHOUT
-            # bringing up 'pia'; detect that and retry (AUTOCONNECT re-picks a
-            # server) instead of hanging here until the startupProbe kills us.
-            if ! kill -0 $PIA_PID 2>/dev/null; then
-              echo "run_setup.sh exited before VPN came up (PIA login likely failed) - retrying..."
-              sleep 5
-              ./run_setup.sh &
-              PIA_PID=$!
-            fi
-            echo "Waiting for VPN interface pia to be ready..."
-            sleep 5
-          done
-          echo "VPN interface ready!"
-          
-          echo "PIA VPN setup completed, monitoring for port changes..."
-          
-          # Function to update qBittorrent port
-          update_qbittorrent_port() {
-            local new_port=$1
-            echo "Updating qBittorrent to use port $new_port..."
-            
-            # Wait for qBittorrent to be ready
-            local max_attempts=60
-            local attempt=0
-            while [ $attempt -lt $max_attempts ]; do
-              if curl -s --connect-timeout 5 http://localhost:8080 > /dev/null 2>&1; then
-                break
-              fi
-              echo "Waiting for qBittorrent to start... (attempt $((attempt+1))/$max_attempts)"
-              sleep 5
-              attempt=$((attempt+1))
-            done
-            
-            if [ $attempt -eq $max_attempts ]; then
-              echo "ERROR: qBittorrent not accessible after $max_attempts attempts"
-              return 1
-            fi
-            
-            # Login with configured password and set the port
-            cookie=$(curl -i -s --connect-timeout 5 --data "username=admin&password=${QB_ADMIN_PASSWORD}" http://localhost:8080/api/v2/auth/login 2>/dev/null | grep -i set-cookie | cut -d' ' -f2)
-            
-            if [ -n "$cookie" ]; then
-              # Set the port via API
-              curl -s -X POST http://localhost:8080/api/v2/app/setPreferences \
-                --cookie "$cookie" \
-                --data "json={\"listen_port\":$new_port}" \
-                --connect-timeout 5
-              echo "qBittorrent port updated to $new_port"
-              
-              # Store port for other containers if needed
-              echo "$new_port" > /shared/forwarded_port
-            else
-              echo "WARNING: Failed to login to qBittorrent for port update"
-            fi
-          }
-          
-          # Monitor port changes and update qBittorrent
-          LAST_PORT=""
-          while true; do
-            # Check if PIA process is still running
-            if ! kill -0 $PIA_PID 2>/dev/null; then
-              echo "ERROR: PIA process died, restarting..."
-              ./run_setup.sh &
-              PIA_PID=$!
-            fi
-            
-            # Check for port changes
-            if [ -f /opt/piavpn-manual-port ]; then
-              CURRENT_PORT=$(cat /opt/piavpn-manual-port 2>/dev/null || echo "")
-              
-              if [ -n "$CURRENT_PORT" ] && [ "$CURRENT_PORT" != "$LAST_PORT" ]; then
-                echo "Port changed from '$LAST_PORT' to '$CURRENT_PORT'"
-                update_qbittorrent_port "$CURRENT_PORT"
-                LAST_PORT="$CURRENT_PORT"
-              fi
-            else
-              echo "No /opt/piavpn-manual-port found!"
-            fi
-            
-            sleep 30
-          done
+        image: mrzelee/docker-wireguard-pia:latest
         env:
-        - name: PIA_USERNAME
+        - name: LOC
+          value: "spain,france,swiss"
+        - name: USER
           valueFrom:
             secretKeyRef:
               name: qbittorrent-secrets
               key: pia-username
-        - name: PIA_PASSWORD
+        - name: PASS
           valueFrom:
             secretKeyRef:
               name: qbittorrent-secrets
               key: pia-password
-        - name: QB_ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: qbittorrent-secrets
-              key: qb-admin-password
+        # Cluster-internal traffic (Traefik, CoreDNS, other apps) bypasses the
+        # tunnel; private ranges only, not an internet escape path
+        - name: LOCAL_NETWORK
+          value: "10.42.0.0/16,10.43.0.0/16"
+        # 0 = image leaves resolv.conf alone; the post-up hook installs split
+        # DNS instead (cluster names -> CoreDNS, the rest -> PIA DNS via wg0)
+        - name: VPNDNS
+          value: "0"
+        # Re-register keys through a leak-limited bypass if the endpoint dies,
+        # without downing wg0 (fixes the stale-tunnel reconnect deadlock)
+        - name: RECONNECT
+          value: "1"
+        # PIA expires idle WireGuard keys
+        - name: KEEPALIVE
+          value: "25"
+        # Port forwarding: port lands in /pia-shared/port.dat and is pushed
+        # into qBittorrent by update-port.sh (LocalHostAuth=false, no login)
+        - name: PORT_FORWARDING
+          value: "1"
+        - name: PORT_SCRIPT
+          value: "sh /config-template/update-port.sh"
         securityContext:
           capabilities:
             add:
@@ -174,41 +64,31 @@ spec:
             - SYS_MODULE
           privileged: true
         volumeMounts:
+        - name: vpn-dns-scripts
+          mountPath: /pia/scripts
         - name: shared-data
-          mountPath: /shared
+          mountPath: /pia-shared
+        - name: qbittorrent-config-template
+          mountPath: /config-template
         startupProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard interface is up
-              wg show pia > /dev/null 2>&1
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
+          initialDelaySeconds: 10
           periodSeconds: 15
           timeoutSeconds: 10
           failureThreshold: 20  # Allow 5 minutes for VPN setup
         livenessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard is running and connected
-              wg show pia > /dev/null 2>&1
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
         readinessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard is connected and port forwarding is working
-              wg show pia > /dev/null 2>&1 && [ -f /opt/piavpn-manual-port ]
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
           periodSeconds: 15
           timeoutSeconds: 10
           failureThreshold: 3
@@ -228,20 +108,20 @@ spec:
         - -c
         - |
           echo "Waiting for VPN interface before starting qBittorrent..."
-          # Wait for pia interface to be available for binding
-          while ! ip link show pia > /dev/null 2>&1; do
-            echo "Waiting for VPN interface pia..."
+          # Wait for wg0 interface to be available for binding
+          while ! ip link show wg0 > /dev/null 2>&1; do
+            echo "Waiting for VPN interface wg0..."
             sleep 5
           done
-          
+
           echo "Setting up qBittorrent config with VPN interface binding..."
-          
+
           # Create config directory with proper ownership
           mkdir -p /config/qBittorrent
 
           # Get the forwarded port from shared volume or use default
-          if [ -f /shared/forwarded_port ]; then
-            FORWARDED_PORT=$(cat /shared/forwarded_port)
+          if [ -f /pia-shared/port.dat ]; then
+            FORWARDED_PORT=$(cat /pia-shared/port.dat)
             echo "Found existing forwarded port: $FORWARDED_PORT"
           else
             FORWARDED_PORT="6881"
@@ -275,7 +155,7 @@ spec:
         - name: jellyfin-media-shared
           mountPath: /downloads
         - name: shared-data
-          mountPath: /shared
+          mountPath: /pia-shared
         - name: qbittorrent-config-template
           mountPath: /config-template
         startupProbe:
@@ -311,6 +191,10 @@ spec:
             cpu: "2000m"
       
       volumes:
+      - name: vpn-dns-scripts
+        configMap:
+          name: vpn-dns-scripts
+          defaultMode: 0755
       - name: shared-data
         emptyDir: {}
       - name: qbittorrent-config

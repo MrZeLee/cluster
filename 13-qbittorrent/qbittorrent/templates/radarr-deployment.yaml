@@ -20,175 +20,65 @@ spec:
         app: radarr
     spec:
       containers:
-      # WireGuard VPN sidecar without port forwarding
+      # PIA WireGuard VPN sidecar (MrZeLee/docker-wireguard-pia)
       - name: wireguard
-        image: alpine:latest
-        command:
-        - /bin/sh
-        - -c
-        - |
-          set -e
-          
-          echo "Installing dependencies..."
-          apk add --no-cache curl jq git bash wireguard-tools iptables iproute2 dnsmasq bind-tools
-          
-          echo "Cloning PIA manual-connections repository..."
-          cd /tmp
-          git clone https://github.com/MrZeLee/manual-connections.git
-          cd manual-connections
-          
-          echo "Setting up PIA WireGuard connection without Port Forwarding..."
-          
-          # Run PIA setup script with environment variables
-          export PIA_USER="${PIA_USERNAME}"
-          export PIA_PASS="${PIA_PASSWORD}"
-          export VPN_PROTOCOL=wireguard
-          export DISABLE_IPV6=yes
-          export DIP_TOKEN=no
-          export AUTOCONNECT=true  # Auto-select best server
-          export PIA_PF=false  # Disable port forwarding
-          export PIA_DNS=true
-          export PIA_CONNECT=true
-          export MAX_LATENCY=0.1
-          
-          echo "Starting PIA VPN with run_setup.sh..."
-          ./run_setup.sh &
-          PIA_PID=$!
-          
-          # Wait for VPN to be fully established
-          echo "Waiting for PIA VPN to be ready..."
-          while ! wg show pia > /dev/null 2>&1; do
-            # A transient PIA login/token failure makes run_setup.sh exit WITHOUT
-            # bringing up 'pia'; detect that and retry (AUTOCONNECT re-picks a
-            # server) instead of hanging here until the startupProbe kills us.
-            if ! kill -0 $PIA_PID 2>/dev/null; then
-              echo "run_setup.sh exited before VPN came up (PIA login likely failed) - retrying..."
-              sleep 5
-              ./run_setup.sh &
-              PIA_PID=$!
-            fi
-            echo "Waiting for VPN interface pia to be ready..."
-            sleep 5
-          done
-          echo "VPN interface ready!"
-          
-          echo "PIA VPN setup completed, monitoring connection..."
-          
-          # Monitor VPN connection with 12-hour restart and external connectivity check
-          START_TIME=$(date +%s)
-          RESTART_INTERVAL=43200  # 12 hours in seconds
-          
-          test_external_connectivity() {
-            for service in "ifconfig.me" "icanhazip.com" "checkip.amazonaws.com"; do
-              if timeout 5 curl -s --max-time 3 "$service" >/dev/null 2>&1; then
-                return 0
-              fi
-            done
-            return 1
-          }
-          
-          while true; do
-            CURRENT_TIME=$(date +%s)
-            TIME_DIFF=$((CURRENT_TIME - START_TIME))
-            
-            # Force restart every 12 hours
-            if [ $TIME_DIFF -ge $RESTART_INTERVAL ]; then
-              echo "12 hours elapsed, restarting VPN..."
-              ./run_setup.sh &
-              PIA_PID=$!
-              START_TIME=$(date +%s)
-              sleep 60
-              continue
-            fi
-            
-            VPN_OK=true
-            
-            # Check interface exists and is up or unknown (WireGuard can show UNKNOWN state)
-            if ! ip link show pia | grep -q -E "state (UP|UNKNOWN)"; then
-              echo "ERROR: VPN interface pia is down"
-              VPN_OK=false
-            fi
-            
-            # Check WireGuard interface has peers (indicating active VPN connection)
-            if ! wg show pia | grep -q "peer:"; then
-              echo "ERROR: No WireGuard peers configured"
-              VPN_OK=false
-            fi
-            
-            # Check if we can reach the default gateway (VPN should route through it)
-            DEFAULT_GW=$(ip route | grep "^default" | awk '{print $3}' | head -1)
-            if [ -n "$DEFAULT_GW" ] && ! ping -c 1 -W 2 "$DEFAULT_GW" >/dev/null 2>&1; then
-              echo "ERROR: Default gateway $DEFAULT_GW unreachable"
-              VPN_OK=false
-            fi
-            
-            # Test external connectivity
-            if ! test_external_connectivity; then
-              echo "ERROR: No external connectivity through VPN"
-              VPN_OK=false
-            fi
-            
-            if [ "$VPN_OK" = false ]; then
-              echo "Restarting VPN..."
-              ./run_setup.sh &
-              PIA_PID=$!
-              START_TIME=$(date +%s)  # Reset timer on restart
-              sleep 60
-            else
-              echo "VPN connection healthy - External connectivity OK"
-              sleep 30
-            fi
-          done
+        image: mrzelee/docker-wireguard-pia:latest
         env:
-        - name: PIA_USERNAME
+        - name: LOC
+          value: "spain,france,swiss"
+        - name: USER
           valueFrom:
             secretKeyRef:
               name: qbittorrent-secrets
               key: pia-username
-        - name: PIA_PASSWORD
+        - name: PASS
           valueFrom:
             secretKeyRef:
               name: qbittorrent-secrets
               key: pia-password
+        # Cluster-internal traffic (Traefik, CoreDNS, other apps) bypasses the
+        # tunnel; private ranges only, not an internet escape path
+        - name: LOCAL_NETWORK
+          value: "10.42.0.0/16,10.43.0.0/16"
+        # 0 = image leaves resolv.conf alone; the post-up hook installs split
+        # DNS instead (cluster names -> CoreDNS, the rest -> PIA DNS via wg0)
+        - name: VPNDNS
+          value: "0"
+        # Re-register keys through a leak-limited bypass if the endpoint dies,
+        # without downing wg0 (fixes the stale-tunnel reconnect deadlock)
+        - name: RECONNECT
+          value: "1"
+        # PIA expires idle WireGuard keys
+        - name: KEEPALIVE
+          value: "25"
         securityContext:
           capabilities:
             add:
             - NET_ADMIN
             - SYS_MODULE
           privileged: true
+        volumeMounts:
+        - name: vpn-dns-scripts
+          mountPath: /pia/scripts
         startupProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard interface is up
-              wg show pia > /dev/null 2>&1
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
+          initialDelaySeconds: 10
           periodSeconds: 15
           timeoutSeconds: 10
           failureThreshold: 20  # Allow 5 minutes for VPN setup
         livenessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard is running and connected
-              wg show pia > /dev/null 2>&1
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
         readinessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - |
-              # Check if WireGuard is connected
-              wg show pia > /dev/null 2>&1
-          initialDelaySeconds: 30
+            - /scripts/healthcheck.sh
           periodSeconds: 15
           timeoutSeconds: 10
           failureThreshold: 3
@@ -199,7 +89,7 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "200m"
-      
+
       # Radarr container
       - name: radarr
         image: linuxserver/radarr:latest
@@ -208,9 +98,9 @@ spec:
         - -c
         - |
           echo "Waiting for VPN interface before starting Radarr..."
-          # Wait for pia interface to be available for binding
-          while ! ip link show pia > /dev/null 2>&1; do
-            echo "Waiting for VPN interface pia..."
+          # Wait for wg0 interface to be available for binding
+          while ! ip link show wg0 > /dev/null 2>&1; do
+            echo "Waiting for VPN interface wg0..."
             sleep 5
           done
           
@@ -265,6 +155,10 @@ spec:
             cpu: "1000m"
       
       volumes:
+      - name: vpn-dns-scripts
+        configMap:
+          name: vpn-dns-scripts
+          defaultMode: 0755
       - name: radarr-config
         persistentVolumeClaim:
           claimName: radarr-config

@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vpn-dns-scripts
+  namespace: media-server
+data:
+  # Run by the docker-wireguard-pia sidecar after wg0 is up.
+  # Split DNS: cluster names -> CoreDNS (via LOCAL_NETWORK), everything
+  # else -> PIA DNS through the tunnel, so lookups never leak to the ISP.
+  # Writing /etc/resolv.conf here reconfigures the WHOLE pod: kubelet
+  # bind-mounts a single pod-wide file into every container.
+  post-up.sh: |
+    #!/bin/sh
+    CLUSTER_DNS="10.43.0.10"  # k3s default kube-dns ClusterIP
+    # With VPNDNS=0 the conf has no DNS line; fall back to PIA's resolvers
+    PIA_DNS=$(grep -m1 '^DNS = ' /etc/wireguard/wg0.conf | sed 's/DNS = //;s/ //g')
+    [ -n "$PIA_DNS" ] || PIA_DNS="10.0.0.243,10.0.0.242"
+
+    # A leftover instance would make the new one fail to bind
+    killall dnsmasq 2>/dev/null || true
+    {
+      echo "no-resolv"
+      echo "listen-address=127.0.0.1"
+      echo "bind-interfaces"
+      echo "server=/cluster.local/$CLUSTER_DNS"
+      # PIA API domains resolve via CoreDNS so RECONNECT can re-register
+      # keys while the tunnel is dead (leaks only PIA-domain lookups)
+      echo "server=/privateinternetaccess.com/$CLUSTER_DNS"
+      echo "server=/piaservers.net/$CLUSTER_DNS"
+      for s in $(echo "$PIA_DNS" | tr ',' ' '); do echo "server=$s"; done
+    } > /tmp/dnsmasq.conf
+    dnsmasq -C /tmp/dnsmasq.conf
+
+    {
+      echo "search media-server.svc.cluster.local svc.cluster.local cluster.local"
+      echo "nameserver 127.0.0.1"
+      echo "options ndots:5"
+    } > /etc/resolv.conf
+
+  # Restore pod-wide cluster DNS before the tunnel goes away, so the pod
+  # isn't left pointing at a dead dnsmasq after a clean sidecar shutdown.
+  pre-down.sh: |
+    #!/bin/sh
+    killall dnsmasq 2>/dev/null || true
+    {
+      echo "search media-server.svc.cluster.local svc.cluster.local cluster.local"
+      echo "nameserver 10.43.0.10"
+      echo "options ndots:5"
+    } > /etc/resolv.conf

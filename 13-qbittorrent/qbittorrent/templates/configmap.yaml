@@ -4,6 +4,18 @@ metadata:
   name: qbittorrent-config-template
   namespace: media-server
 data:
+  # Run by the VPN sidecar (PORT_SCRIPT) with the forwarded port as $1.
+  # Retries while qBittorrent finishes booting; no login needed because
+  # WebUI\LocalHostAuth=false below.
+  update-port.sh: |
+    #!/bin/sh
+    for i in $(seq 1 60); do
+      curl -sf --max-time 5 --data "json={\"listen_port\":$1}" \
+        http://127.0.0.1:8080/api/v2/app/setPreferences && exit 0
+      sleep 5
+    done
+    echo "Failed to set qBittorrent listen port to $1" >&2
+    exit 1
   qBittorrent.conf: |
     [Application]
     FileLogger\Age=1
@@ -24,8 +36,8 @@ data:
     Session\AnonymousModeEnabled=false
     Session\DefaultSavePath=/downloads/
     Session\ExcludedFileNames=
-    Session\Interface=pia
-    Session\InterfaceName=pia
+    Session\Interface=wg0
+    Session\InterfaceName=wg0
     Session\Port=PLACEHOLDER_PORT
     Session\QueueingSystemEnabled=true
     Session\ReannounceWhenAddressChanged=true
